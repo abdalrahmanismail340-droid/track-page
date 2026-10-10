@@ -107,30 +107,44 @@ async function geoIP(ip) {
     const r = await fetch('https://ipwho.is/' + ip, { signal: ctl.signal });
     clearTimeout(t);
     const j = await r.json();
-    if (!j.success) return null;
-    const conn = j.connection || {};
+    if (j.success) {
+      const conn = j.connection || {};
+      return {
+        loc: [j.city, j.region, j.country].filter(Boolean).join(', '),
+        coords: (j.latitude != null) ? j.latitude + ',' + j.longitude : 'n/a',
+        isp: conn.isp || 'n/a',
+        org: conn.org || 'n/a',
+        asn: conn.asn ? 'AS' + conn.asn : 'n/a',
+        tzid: (j.timezone && j.timezone.id) || '',
+        cc: j.country_code || ''
+      };
+    }
+  } catch (e) { /* fallback */ }
+  try {
+    const ctl2 = new AbortController();
+    const t2 = setTimeout(() => ctl2.abort(), 6000);
+    const r2 = await fetch('https://ipinfo.io/' + ip + '/json', { signal: ctl2.signal });
+    clearTimeout(t2);
+    const k = await r2.json();
+    if (!k.ip || k.bogon) return null;
+    const parts = (k.loc || ',').split(',');
+    const asnM = (k.org || '').match(/AS(\d+)/);
     return {
-      loc: [j.city, j.region, j.country].filter(Boolean).join(', '),
-      coords: (j.latitude != null) ? j.latitude + ',' + j.longitude : 'n/a',
-      isp: conn.isp || 'n/a',
-      org: conn.org || 'n/a',
-      asn: conn.asn ? 'AS' + conn.asn : 'n/a',
-      tzid: (j.timezone && j.timezone.id) || '',
-      cc: j.country_code || ''
+      loc: [k.city, k.region, k.country].filter(Boolean).join(', '),
+      coords: (parts[0] && parts[1]) ? parts[0] + ',' + parts[1] : 'n/a',
+      isp: k.org || 'n/a',
+      org: k.org || 'n/a',
+      asn: asnM ? 'AS' + asnM[1] : 'n/a',
+      tzid: k.timezone || '',
+      cc: k.country || ''
     };
   } catch (e) { return null; }
 }
 
-async function vpnSignals(ip, ipTz, ipCountry) {
-  const sig = { proxy: false, hosting: false, tzMismatch: false, langMismatch: false };
-  try {
-    const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), 6000);
-    const r = await fetch('https://ip-api.com/json/' + ip + '?fields=status,proxy,hosting', { signal: ctl.signal });
-    clearTimeout(t);
-    const j = await r.json();
-    if (j.status === 'ok') { sig.proxy = !!j.proxy; sig.hosting = !!j.hosting; }
-  } catch (e) { /* ignore */ }
+function vpnSignals(ipTz, ipCountry) {
+  // ملحوظة: فحص proxy/hosting عبر ip-api.com لا يعمل على HTTPS في الخطة المجانية،
+  // فالكشف هنا يعتمد على مقارنة إعدادات المتصفح بموقع الـ IP
+  const sig = { tzMismatch: false, langMismatch: false };
   const bTz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
   const lang = (navigator.language || '').toUpperCase();
   const langCountry = lang.indexOf('-') > -1 ? lang.split('-')[1] : '';
@@ -140,7 +154,7 @@ async function vpnSignals(ip, ipTz, ipCountry) {
 }
 
 function isVpn(sig) {
-  return sig.proxy || sig.hosting || (sig.tzMismatch && sig.langMismatch);
+  return sig.tzMismatch && sig.langMismatch;
 }
 
 function getGPS() {
@@ -157,14 +171,22 @@ function getGPS() {
 }
 
 async function getIP() {
-  try {
-    const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), 6000);
-    const r = await fetch('https://api.ipify.org?format=json', { signal: ctl.signal });
-    clearTimeout(t);
-    const j = await r.json();
-    return j.ip || 'unknown';
-  } catch (e) { return 'unknown'; }
+  const tries = [
+    'https://api.ipify.org?format=json',
+    'https://api64.ipify.org?format=json',
+    'https://ipinfo.io/json'
+  ];
+  for (const url of tries) {
+    try {
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), 6000);
+      const r = await fetch(url, { signal: ctl.signal });
+      clearTimeout(t);
+      const j = await r.json();
+      if (j.ip) return j.ip;
+    } catch (e) { /* جرّب اللي بعده */ }
+  }
+  return 'unknown';
 }
 
 function deviceInfo() {
@@ -210,12 +232,10 @@ async function logVisit() {
   const d = deviceInfo();
   const g = await geoIP(ip);
   const model = await uaModel();
-  const sig = await vpnSignals(ip, g && g.tzid, g && g.cc);
+  const sig = vpnSignals(g && g.tzid, g && g.cc);
   if (isVpn(sig)) {
     const reasons = [];
-    if (sig.proxy) reasons.push('proxy');
-    if (sig.hosting) reasons.push('hosting');
-    if (sig.tzMismatch && sig.langMismatch) reasons.push('فرق المنطقة الزمنية واللغة');
+    if (sig.tzMismatch && sig.langMismatch) reasons.push('فرق المنطقة الزمنية واللغة عن موقع الـ IP');
     tg(`🚫 محاولة VPN محظورة\n🆔 ${sessionId}\n🌐 IP (الظاهر): ${ip}\n📍 ${(g && g.loc) || 'n/a'}\n⚠️ السبب: ${reasons.join('، ')}\n#️⃣ fp: ${d.fp}\n💻 ${d.platform} | ${(navigator.userAgent || '').slice(0, 120)}`);
     document.body.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f1420;color:#e8ecf4;font-family:system-ui;padding:20px;text-align:center" dir="rtl"><div><div style="font-size:52px;margin-bottom:14px">🚫</div><div style="font-size:20px;font-weight:700;margin-bottom:8px">تم رصد اتصال VPN</div><div style="color:#9aa5bd;font-size:14px;line-height:1.8">من فضلك أغلق الـ VPN<br>وأعد تحميل الصفحة للمتابعة</div></div></div>';
     return;
