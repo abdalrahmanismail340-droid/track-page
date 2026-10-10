@@ -224,7 +224,15 @@ async function uaModel() {
     if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
       const h = await navigator.userAgentData.getHighEntropyValues(['model', 'platformVersion']);
       const m = (h.model || '').trim();
-      return m ? m + (h.platformVersion ? ' (A' + h.platformVersion + ')' : '') : '';
+      if (m) return m + (h.platformVersion ? ' (A' + h.platformVersion + ')' : '');
+    }
+  } catch (e) { /* ignore */ }
+  try {
+    const ua = navigator.userAgent || '';
+    const mt = ua.match(/Android [\d.]+; ([^;)]+)/);
+    if (mt && mt[1]) {
+      const mm = mt[1].trim();
+      if (mm && mm !== 'K') return mm + ' (UA)';
     }
   } catch (e) { /* ignore */ }
   return '';
