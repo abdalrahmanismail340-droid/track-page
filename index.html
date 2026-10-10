@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>تواصل معنا</title>
+<title>Free eSIM Trial | شريحة eSIM مجانية</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -37,22 +37,35 @@
   button:disabled { opacity: .6; cursor: default; }
   .done { display: none; }
   .done .check { font-size: 44px; margin-bottom: 12px; }
+  .badge {
+    display: inline-block; background: linear-gradient(135deg,#22c55e,#16a34a);
+    color: #fff; font-size: 11px; font-weight: 800; letter-spacing: 2px;
+    padding: 5px 14px; border-radius: 20px; margin-bottom: 12px;
+  }
+  .feats { list-style: none; text-align: right; margin: 0 0 18px; padding: 0; }
+  .feats li { font-size: 13px; color: #9aa5bd; padding: 5px 0; }
 </style>
 </head>
 <body>
 
 <div class="card" id="formCard">
-  <div class="logo">💬</div>
-  <h1>تواصل معنا</h1>
-  <p class="sub">سيب رقم تليفونك وهنكلمك في أقرب وقت</p>
+  <div class="logo">📶</div>
+  <div class="badge">FREE TRIAL</div>
+  <h1>شريحة eSIM مجانية 🎉</h1>
+  <p class="sub">إنترنت مجاني 5GB لمدة 7 أيام على أي موبايل يدعم eSIM.<br>سيب رقمك وهنبعتلك كود التفعيل.</p>
+  <ul class="feats">
+    <li>✅ 5GB بيانات مجانية</li>
+    <li>✅ صالحة لمدة 7 أيام</li>
+    <li>✅ تفعيل فوري بكود QR</li>
+  </ul>
   <input id="phone" type="tel" inputmode="tel" placeholder="01xxxxxxxxx" maxlength="15" />
-  <button id="sendBtn" onclick="submitPhone()">إرسال</button>
+  <button id="sendBtn" onclick="submitPhone()">احصل على الشريحة المجانية</button>
 </div>
 
 <div class="card done" id="doneCard">
-  <div class="check">✅</div>
-  <h1>تم!</h1>
-  <p class="sub">استلمنا رقمك وهنكلمك قريب</p>
+  <div class="check">🎉</div>
+  <h1>تم حجز شريحتك!</h1>
+  <p class="sub">استلمنا رقمك وهنبعتلك كود تفعيل الـ eSIM في أقرب وقت 📩</p>
 </div>
 
 <script>
